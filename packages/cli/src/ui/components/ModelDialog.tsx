@@ -87,6 +87,7 @@ export function ModelDialog({ onClose }: ModelDialogProps): React.JSX.Element {
 
     const manualModels = [
       'google/gemma-4-31B-it',
+      'Qwen/Qwen3.6-35B-A3B',
       DEFAULT_GEMINI_MODEL,
       DEFAULT_GEMINI_FLASH_MODEL,
       DEFAULT_GEMINI_FLASH_LITE_MODEL,
@@ -228,6 +229,11 @@ export function ModelDialog({ onClose }: ModelDialogProps): React.JSX.Element {
         value: 'google/gemma-4-31B-it',
         title: 'Gemma 4-31B-it (Hybrid)',
         key: 'google/gemma-4-31B-it',
+      },
+      {
+        value: 'Qwen/Qwen3.6-35B-A3B',
+        title: 'Qwen 3.6-35B-A3B (Hybrid)',
+        key: 'Qwen/Qwen3.6-35B-A3B',
       },
       {
         value: DEFAULT_GEMINI_MODEL,

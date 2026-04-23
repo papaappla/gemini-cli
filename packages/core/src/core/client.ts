@@ -1062,7 +1062,7 @@ export class GeminiClient {
     // steer the config resolution toward a Google-native model.
     const isPrimaryOpenAi = this.config.getContentGeneratorConfig()?.authType === AuthType.OPENAI;
     // ONLY web-search and web-fetch require the Google utility engine.
-    // Local tools like replace, write_file, etc. should stay with Gemma 4.
+    // Local tools like replace, write_file, etc. should stay with the primary hybrid model (Gemma/Qwen).
     const isUtilityTask = !modelConfigKey.isChatModel && 
                           ['web-search', 'web-fetch', 'classifier'].includes(modelConfigKey.model || '');
     

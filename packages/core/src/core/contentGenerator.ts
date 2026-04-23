@@ -85,8 +85,14 @@ export function getAuthTypeFromEnv(model?: string): AuthType | undefined {
   debugLogger.log(`[getAuthTypeFromEnv] Env GOOGLE_GENAI_USE_GCA: ${process.env['GOOGLE_GENAI_USE_GCA']}`);
 
   // HIGHEST PRIORITY: If a custom model is requested, FORCE OpenAI auth.
-  if (model?.startsWith('google/gemma') || model === 'gemma') {
-    debugLogger.log(`[getAuthTypeFromEnv] FORCING AuthType.OPENAI due to gemma prefix`);
+  if (
+    model?.startsWith('google/gemma') ||
+    model === 'gemma' ||
+    model?.startsWith('Qwen/')
+  ) {
+    debugLogger.log(
+      `[getAuthTypeFromEnv] FORCING AuthType.OPENAI due to gemma/qwen prefix`,
+    );
     return AuthType.OPENAI;
   }
 
