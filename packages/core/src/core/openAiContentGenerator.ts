@@ -333,7 +333,9 @@ export class OpenAiContentGenerator implements ContentGenerator {
             const pairs: Record<string, any> = {};
             
             // Regex to find: key [:=] 
-            const keyStartRegex = /([a-zA-Z0-9_]+)\s*[:=]/g;
+            // We require the key to be preceded by start of string, comma, opening brace, or newline
+            // to avoid misidentifying CLI flags (like --execute=) inside a command string as new keys.
+            const keyStartRegex = /(?:^|[,{\n])\s*([a-zA-Z0-9_]+)\s*[:=]/g;
             let currentMatch;
             const matches: {key: string, startIndex: number, valueStartIndex: number}[] = [];
             
