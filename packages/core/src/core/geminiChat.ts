@@ -668,6 +668,8 @@ export class GeminiChat {
       );
 
       // HYBRID ROUTING: Determine which generator to use based on the model.
+      // ONLY models that strictly require Google Auth (gemini- prefixes or web tools)
+      // should use the utility generator. Local tools stay with Primary.
       const isInternalModel = 
         modelToUse.startsWith('gemini-') || 
         ['web-search', 'web-fetch', 'classifier', 'summarizer-default'].includes(modelToUse);
@@ -675,6 +677,14 @@ export class GeminiChat {
       const generator = isInternalModel 
         ? this.context.config.getUtilityGenerator() 
         : this.context.config.getContentGenerator();
+
+      if (process.env['DEBUG']) {
+        console.log(`[GeminiChat] --- HYBRID ROUTING ---
+          - Model to use: ${modelToUse}
+          - Is Internal: ${isInternalModel}
+          - Chosen Generator: ${generator.constructor.name}
+          ---------------------------------`);
+      }
 
       debugLogger.log(`[GeminiChat] Routing request to ${isInternalModel ? 'Utility' : 'Primary'} generator for model: ${modelToUse}`);
 

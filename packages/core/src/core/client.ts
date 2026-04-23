@@ -1061,7 +1061,9 @@ export class GeminiClient {
     // If this is a utility task and we are in a Gemma (OpenAI) session, 
     // steer the config resolution toward a Google-native model.
     const isPrimaryOpenAi = this.config.getContentGeneratorConfig()?.authType === AuthType.OPENAI;
-    const isUtilityTask = !modelConfigKey.isChatModel || 
+    // ONLY web-search and web-fetch require the Google utility engine.
+    // Local tools like replace, write_file, etc. should stay with Gemma 4.
+    const isUtilityTask = !modelConfigKey.isChatModel && 
                           ['web-search', 'web-fetch', 'classifier'].includes(modelConfigKey.model || '');
     
     if (isPrimaryOpenAi && isUtilityTask) {
@@ -1131,10 +1133,13 @@ export class GeminiClient {
           : this.getContentGeneratorOrFail();
 
         if (process.env['DEBUG']) {
-          console.log(`[GeminiClient] FINAL GENERATOR CALL:
-            - Generator Type: ${generator.constructor.name}
-            - Request Model: ${currentAttemptModel}
-          `);
+          console.log(`[GeminiClient] --- HYBRID EXECUTION TRACE ---
+            - Generator: ${generator.constructor.name}
+            - AuthType: ${this.config.getContentGeneratorConfig()?.authType}
+            - Target Model (Masked): ${currentAttemptModel}
+            - Is Utility Task: ${isUtilityTask}
+            - Prompt ID: ${this.lastPromptId ?? 'default'}
+            ------------------------------------------`);
         }
 
         return generator.generateContent(

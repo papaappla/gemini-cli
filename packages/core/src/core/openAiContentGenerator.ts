@@ -72,6 +72,13 @@ export class OpenAiContentGenerator implements ContentGenerator {
 
     const openAiTools = this.mapGeminiToolsToOpenAi(tools);
 
+    if (process.env['DEBUG']) {
+      console.log(`[OpenAiGenerator] --- TOOLS DATA TRACE ---
+        - Original Tools Count: ${tools?.length ?? 0}
+        - Mapped OpenAI Tools: ${JSON.stringify(openAiTools?.map(t => t.function.name), null, 2)}
+        ------------------------------------------`);
+    }
+
     debugLogger.log(`[OpenAiContentGenerator] FINAL MESSAGES SENT TO API: ${JSON.stringify(messages, null, 2)}`);
 
     const body: any = {
@@ -148,8 +155,15 @@ export class OpenAiContentGenerator implements ContentGenerator {
     if (!tools) return [];
     const openAiTools: any[] = [];
     for (const tool of tools) {
-      if (tool.functionDeclarations) {
-        for (const fd of tool.functionDeclarations) {
+      // Some tools use functionDeclarations, others use getDeclaration().
+      // Cast to any to access potentially available getDeclaration() method.
+      const toolAny = tool as any;
+      const declarations = tool.functionDeclarations || 
+        (typeof toolAny.getDeclaration === 'function' ? [toolAny.getDeclaration()] : []);
+      
+      if (declarations && declarations.length > 0) {
+        for (const fd of declarations) {
+          if (!fd) continue;
           openAiTools.push({
             type: 'function',
             function: {
@@ -161,6 +175,8 @@ export class OpenAiContentGenerator implements ContentGenerator {
             },
           });
         }
+      } else if (process.env['DEBUG']) {
+        console.log(`[OpenAiGenerator] STILL SKIPPING TOOL (No data): ${(tool as any).constructor.name || 'Unknown'}`);
       }
     }
     return openAiTools;
@@ -307,29 +323,56 @@ export class OpenAiContentGenerator implements ContentGenerator {
             const name = parts_match[1].trim();
             let rawArgs = parts_match[2];
             
-            // SUPER ROBUST PSEUDO-JSON PARSING V3
-            // 1. Quote ALL unquoted keys (even if they start the object)
-            // Regex: Finds an identifier followed by a colon that isn't already preceded by a quote
-            rawArgs = rawArgs.replace(/([{,]\s*)([a-zA-Z0-9_]+)(\s*:)/g, '$1"$2"$3');
-            // If the very first key is missing its opening brace context in some outputs
-            if (rawArgs.startsWith('{') && !rawArgs.startsWith('{"') && !rawArgs.startsWith('{"')) {
-               rawArgs = rawArgs.replace(/^{([a-zA-Z0-9_]+):/, '{"$1":');
+            // SUPER ROBUST PSEUDO-JSON PARSING V5
+            // 1. Extract content between { and }
+            // 2. Split by key-value delimiters robustly
+            let jsonBuilder = rawArgs.trim();
+            if (jsonBuilder.startsWith('{')) jsonBuilder = jsonBuilder.substring(1);
+            if (jsonBuilder.endsWith('}')) jsonBuilder = jsonBuilder.substring(0, jsonBuilder.length - 1);
+            
+            const pairs: Record<string, any> = {};
+            
+            // Regex to find: key [:=] 
+            const keyStartRegex = /([a-zA-Z0-9_]+)\s*[:=]/g;
+            let currentMatch;
+            const matches: {key: string, startIndex: number, valueStartIndex: number}[] = [];
+            
+            while ((currentMatch = keyStartRegex.exec(jsonBuilder)) !== null) {
+              matches.push({
+                key: currentMatch[1],
+                startIndex: currentMatch.index,
+                valueStartIndex: keyStartRegex.lastIndex
+              });
+            }
+
+            for (let i = 0; i < matches.length; i++) {
+              const current = matches[i];
+              const next = matches[i + 1];
+              let value = next 
+                ? jsonBuilder.substring(current.valueStartIndex, next.startIndex)
+                : jsonBuilder.substring(current.valueStartIndex);
+              
+              value = value.trim();
+              // Remove trailing comma if it exists at the end of the value (but not inside quotes)
+              if (value.endsWith(',')) {
+                value = value.substring(0, value.length - 1).trim();
+              }
+
+              // Final cleanup of quotes
+              if ((value.startsWith('"') && value.endsWith('"')) || 
+                  (value.startsWith("'") && value.endsWith("'"))) {
+                value = value.substring(1, value.length - 1);
+              }
+
+              // Simple type conversion
+              if (value === 'true') pairs[current.key] = true;
+              else if (value === 'false') pairs[current.key] = false;
+              else if (value === 'null') pairs[current.key] = null;
+              else if (!isNaN(Number(value)) && value !== '' && !value.includes('\n')) pairs[current.key] = Number(value);
+              else pairs[current.key] = value;
             }
             
-            // 2. Quote string values ONLY if not already quoted
-            rawArgs = rawArgs.replace(/:\s*([^"{\[tf\n\-0-9\s][^,}\n]*)/g, (match, p1) => {
-              const trimmed = p1.trim();
-              if (trimmed === 'true' || trimmed === 'false' || trimmed === 'null' || !isNaN(Number(trimmed))) {
-                return `: ${trimmed}`;
-              }
-              if (trimmed.startsWith('"')) return `: ${trimmed}`;
-              return `: "${trimmed}"`;
-            });
-
-            // 3. Clean up
-            rawArgs = rawArgs.replace(/,\s*([}\]])/g, '$1');
-
-            const args = JSON.parse(rawArgs);
+            const args = Object.keys(pairs).length > 0 ? pairs : JSON.parse(rawArgs);
             const callId = `call_${name}_${Math.random().toString(36).substring(2, 5)}`;
           
             const fnCall = { name, args, id: callId };
