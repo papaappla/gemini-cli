@@ -690,9 +690,6 @@ export class GeminiClient {
     // Re-initialize turn with fresh history
     turn = new Turn(this.getChat(), prompt_id);
 
-    const controller = new AbortController();
-    const linkedSignal = AbortSignal.any([signal, controller.signal]);
-
     const loopResult = await this.loopDetector.turnStarted(signal);
     if (loopResult.count > 1) {
       yield { type: GeminiEventType.LoopDetected };
@@ -753,7 +750,7 @@ export class GeminiClient {
     const resultStream = turn.run(
       modelConfigKey,
       request,
-      linkedSignal,
+      signal,
       displayContent,
     );
     let isError = false;
@@ -789,7 +786,6 @@ export class GeminiClient {
     }
 
     if (loopDetectedAbort) {
-      controller.abort();
       return turn;
     }
 
@@ -801,10 +797,8 @@ export class GeminiClient {
         boundedTurns,
         isInvalidStreamRetry,
         displayContent,
-        controller,
       );
     }
-
     if (isError) {
       return turn;
     }
@@ -1300,10 +1294,7 @@ export class GeminiClient {
     boundedTurns: number,
     isInvalidStreamRetry: boolean,
     displayContent?: PartListUnion,
-    controllerToAbort?: AbortController,
   ): AsyncGenerator<ServerGeminiStreamEvent, Turn> {
-    controllerToAbort?.abort();
-
     // Clear the detection flag so the recursive turn can proceed, but the count remains 1.
     this.loopDetector.clearDetection();
 
