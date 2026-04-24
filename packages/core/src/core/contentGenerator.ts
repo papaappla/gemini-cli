@@ -88,10 +88,11 @@ export function getAuthTypeFromEnv(model?: string): AuthType | undefined {
   if (
     model?.startsWith('google/gemma') ||
     model === 'gemma' ||
-    model?.startsWith('Qwen/')
+    model?.startsWith('Qwen/') ||
+    model?.startsWith('supergemma')
   ) {
     debugLogger.log(
-      `[getAuthTypeFromEnv] FORCING AuthType.OPENAI due to gemma/qwen prefix`,
+      `[getAuthTypeFromEnv] FORCING AuthType.OPENAI due to gemma/qwen/supergemma prefix`,
     );
     return AuthType.OPENAI;
   }

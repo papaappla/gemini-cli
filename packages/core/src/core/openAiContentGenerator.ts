@@ -308,7 +308,7 @@ export class OpenAiContentGenerator implements ContentGenerator {
 
     const toolCallPatterns = [
       /<\|tool_call>([\s\S]*?)<tool_call\|?>/g,
-      /call:([a-zA-Z0-9_]+)(\{[\s\S]*?\})/g
+      /call:([a-zA-Z0-9_]+)([\(\{\[][\s\S]*?[\)\}\]])/g
     ];
 
     for (const pattern of toolCallPatterns) {
@@ -317,25 +317,24 @@ export class OpenAiContentGenerator implements ContentGenerator {
         const fullMatch = match[0];
         const innerContent = pattern.source.includes('<|tool_call>') ? match[1].trim() : match[0];
         
-        const parts_match = innerContent.match(/call:([^\{]+)(\{[\s\S]*\})/);
+        const parts_match = innerContent.match(/call:([^\(\{\[]+)([\(\{\[][\s\S]*[\)\}\]])/);
         if (parts_match) {
           try {
             const name = parts_match[1].trim();
             let rawArgs = parts_match[2];
             
             // SUPER ROBUST PSEUDO-JSON PARSING V5
-            // 1. Extract content between { and }
+            // 1. Extract content between { } or ( )
             // 2. Split by key-value delimiters robustly
             let jsonBuilder = rawArgs.trim();
-            if (jsonBuilder.startsWith('{')) jsonBuilder = jsonBuilder.substring(1);
-            if (jsonBuilder.endsWith('}')) jsonBuilder = jsonBuilder.substring(0, jsonBuilder.length - 1);
+            if (jsonBuilder.startsWith('{') || jsonBuilder.startsWith('(')) jsonBuilder = jsonBuilder.substring(1);
+            if (jsonBuilder.endsWith('}') || jsonBuilder.endsWith(')')) jsonBuilder = jsonBuilder.substring(0, jsonBuilder.length - 1);
             
             const pairs: Record<string, any> = {};
             
             // Regex to find: key [:=] 
-            // We require the key to be preceded by start of string, comma, opening brace, or newline
-            // to avoid misidentifying CLI flags (like --execute=) inside a command string as new keys.
-            const keyStartRegex = /(?:^|[,{\n])\s*([a-zA-Z0-9_]+)\s*[:=]/g;
+            // We require the key to be preceded by start of string, comma, opening brace/paren, or newline
+            const keyStartRegex = /(?:^|[,{\(\n])\s*([a-zA-Z0-9_]+)\s*[:=]/g;
             let currentMatch;
             const matches: {key: string, startIndex: number, valueStartIndex: number}[] = [];
             

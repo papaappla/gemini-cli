@@ -33,6 +33,8 @@ export function tokenLimit(model: Model): TokenCount {
     case DEFAULT_GEMINI_FLASH_MODEL:
     case DEFAULT_GEMINI_FLASH_LITE_MODEL:
       return 1_048_576;
+    case 'supergemma4-26b-uncensored-fast-v2':
+      return 262_144;
     default:
       return DEFAULT_TOKEN_LIMIT;
   }
